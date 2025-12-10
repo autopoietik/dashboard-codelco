@@ -30,18 +30,31 @@ import {
   User,
   LogOut,
   ShieldCheck,
-  Bell
-} from 'lucide-react';
+  Bell,
+  Play,
+  ChevronDown
+} from 'lucide-react'; // <--- Aquí terminan los iconos, sin repetirse
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { motion, AnimatePresence } from 'framer-motion';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import BudgetDetail from './BudgetDetail';
+import KPIView from './KPIView';
+import SimulationView from './SimulationView';
 
 function cn(...inputs) {
   return twMerge(clsx(inputs));
 }
+
+const getInitials = (name) => {
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .substring(0, 2)
+    .toUpperCase();
+};
 
 // DATASET (HARDCODED)
 const financialData = {
@@ -89,6 +102,28 @@ const financialData = {
     }
   ]
 };
+
+// USERS DATABASE
+const USERS_DB = [
+  {
+    name: "Marcela Illanes",
+    email: "marcela@codelco.com",
+    pass: "ICG2025",
+    role: "Administrador"
+  },
+  {
+    name: "Camilo Alegría",
+    email: "camilo@codelco.com",
+    pass: "codelco123",
+    role: "Administrador"
+  },
+  {
+    name: "Equipo 6",
+    email: "equipo6@codelco.com",
+    pass: "codelco123",
+    role: "Administrador"
+  }
+];
 
 // --- SHARED COMPONENTS ---
 const GlassCard = ({ children, className, delay = 0 }) => (
@@ -186,11 +221,13 @@ function LoginScreen({ onLogin }) {
     e.preventDefault();
     setError(false);
 
-    if (email === 'marcela@codelco.com' && password === 'ICG2025') {
+    const foundUser = USERS_DB.find(u => u.email === email && u.pass === password);
+
+    if (foundUser) {
       setLoading(true);
       setMessage('Autenticando con Servidores LDAP...');
       setTimeout(() => {
-        onLogin();
+        onLogin(foundUser);
       }, 1500);
     } else {
       setError(true);
@@ -296,7 +333,7 @@ function LoginScreen({ onLogin }) {
 }
 
 // --- DASHBOARD LAYOUT COMPONENT ---
-function DashboardLayout({ onLogout, onNavigate }) {
+function DashboardLayout({ user, onLogout, onNavigate }) {
   const [isOptimized, setIsOptimized] = useState(false);
   const [sensorData, setSensorData] = useState({
     vibration: 2.4,
@@ -470,10 +507,23 @@ function DashboardLayout({ onLogout, onNavigate }) {
 
           <div className="flex items-center gap-6">
             <button
-              onClick={onNavigate}
+              onClick={() => onNavigate('budget')}
               className="bg-codelco-orange text-white px-4 py-1.5 rounded-full text-xs font-bold hover:bg-orange-700 transition-colors shadow-sm animate-pulse"
             >
               Ver Desglose Presupuestario
+            </button>
+            <button
+              onClick={() => onNavigate('kpi')}
+              className="bg-white/50 backdrop-blur-sm border border-white/40 text-gray-700 px-4 py-1.5 rounded-full text-xs font-bold hover:bg-white/80 transition-colors shadow-sm flexible-glass"
+            >
+              Ver KPIs Estratégicos
+            </button>
+            <button
+              onClick={() => onNavigate('simulation')}
+              className="bg-slate-800 text-white border border-slate-700 px-4 py-1.5 rounded-full text-xs font-bold hover:bg-slate-700 transition-colors shadow-sm flex items-center gap-2"
+            >
+              <Play size={12} fill="white" />
+              Galería de Simulación
             </button>
 
             <div className="hidden md:flex items-center gap-2 text-xs font-medium px-3 py-1.5 bg-green-50 text-green-700 rounded-full border border-green-100">
@@ -481,214 +531,119 @@ function DashboardLayout({ onLogout, onNavigate }) {
               System Status: ONLINE
             </div>
 
-            <div className="h-8 w-[1px] bg-gray-200 hidden md:block"></div>
-
             <div className="flex items-center gap-3">
-              <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-gray-800">Marcela Illanes</p>
-                <p className="text-[10px] text-gray-500 font-medium">Perfil: Administrador</p>
-              </div>
-              <div className="w-10 h-10 bg-codelco-slate rounded-full flex items-center justify-center text-white border-2 border-gray-200 shadow-sm">
-                <User size={20} />
-              </div>
+              <div className="h-8 w-[1px] bg-gray-200 hidden md:block"></div>
+
+              <button className="flex items-center gap-3 pl-2 pr-4 py-1.5 rounded-full hover:bg-slate-100 transition-colors border border-transparent hover:border-slate-200 group">
+                <div className="w-9 h-9 bg-[#D97828] rounded-full flex items-center justify-center text-white ring-2 ring-white shadow-sm">
+                  <span className="font-bold text-xs tracking-wider">{user ? getInitials(user.name) : 'US'}</span>
+                </div>
+                <div className="text-left hidden sm:block">
+                  <p className="text-sm font-semibold text-slate-700 leading-tight group-hover:text-codelco-orange transition-colors">
+                    {user ? user.name : 'Usuario'}
+                  </p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">
+                    {user ? user.role : 'Invitado'}
+                  </p>
+                </div>
+                <ChevronDown size={14} className="text-gray-400 group-hover:text-gray-600 transition-colors" />
+              </button>
             </div>
           </div>
         </header>
 
         {/* SCROLLABLE CONTENT AREA */}
         <main className="flex-1 overflow-y-auto bg-gray-50/50 p-8" ref={dashboardRef}>
-          <div className="max-w-7xl mx-auto space-y-8">
+          <div className="max-w-7xl mx-auto space-y-12">
 
-            {/* PAGE HEADER & CONTROLS */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-codelco-slate to-gray-600">
-                  Vista Ejecutiva: Rentabilidad IoT
-                </h1>
-                <p className="text-sm text-gray-500 flex items-center gap-2">
-                  <ShieldCheck size={14} className="text-green-600" />
-                  Datos Confidenciales - Actualizado: {new Date().toLocaleTimeString()}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {/* TOGGLE */}
-                <div className="bg-white rounded-lg p-1 border border-gray-200 shadow-sm flex items-center h-10">
-                  <button
-                    onClick={() => setIsOptimized(false)}
-                    className={cn("px-4 h-full text-xs font-bold rounded-md transition-all", !isOptimized ? "bg-codelco-slate text-white shadow" : "text-gray-500 hover:bg-gray-50")}
-                  >
-                    Escenario Actual
-                  </button>
-                  <button
-                    onClick={() => setIsOptimized(true)}
-                    className={cn("px-4 h-full text-xs font-bold rounded-md transition-all", isOptimized ? "bg-codelco-orange text-white shadow" : "text-gray-500 hover:bg-gray-50")}
-                  >
-                    Optimizado IoT
-                  </button>
+            {/* HERO SECTION */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center space-y-6 py-12"
+            >
+              <div className="inline-block p-3 rounded-2xl bg-gradient-to-br from-codelco-orange/20 to-orange-100 mb-2 shadow-inner">
+                <div className="bg-codelco-orange rounded-xl w-12 h-12 flex items-center justify-center text-white shadow-lg">
+                  <Activity size={24} />
                 </div>
-
-                <button
-                  onClick={downloadPDF}
-                  className="bg-white border border-gray-200 text-gray-700 w-10 h-10 rounded-lg flex items-center justify-center hover:bg-gray-50 shadow-sm transition-colors"
-                  title="Exportar PDF"
-                >
-                  <Download size={18} />
-                </button>
               </div>
-            </div>
+              <h1 className="text-4xl md:text-5xl font-black text-slate-800 tracking-tight leading-tight">
+                Modernización IoT: <br />
+                <span className="bg-clip-text text-transparent bg-gradient-to-r from-codelco-orange to-orange-600">
+                  Molienda SAG & Seguridad Subterránea
+                </span>
+              </h1>
+              <p className="text-xl text-gray-500 max-w-3xl mx-auto font-medium">
+                Transición Estratégica: De Mantenimiento Reactivo a Predictivo Basado en Condición (CBM)
+              </p>
 
-            {/* KPIS */}
-            <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <StatCard
-                title="Presupuesto Anual"
-                value={formatMoney(displayBudget)}
-                icon={AlertTriangle}
-                subtext="Opex Proyectado"
-                delay={0.1}
-                isOptimized={isOptimized}
-              />
-              <StatCard
-                title="Ahorro Potencial"
-                value={formatMoney(isOptimized ? totalSavings : 0)}
-                icon={TrendingDown}
-                subtext={isOptimized ? "Capturado" : "Latente"}
-                trend="positive"
-                delay={0.2}
-              />
-              <StatCard
-                title="ROI Estimado"
-                value={financialData.kpis.roi}
-                icon={DollarSign}
-                subtext="Payback < 12 Meses"
-                trend="positive"
-                delay={0.3}
-              />
-              <div className="col-span-1 md:col-span-2 lg:col-span-1">
-                <GlassCard delay={0.4} className="h-full bg-gradient-to-br from-codelco-orange/90 to-orange-600 text-white border-none p-4 flex flex-col justify-center relative overflow-hidden">
-                  <div className="absolute right-0 top-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
-                  <p className="text-xs font-medium text-white/80 mb-1">Dictamen Financiero</p>
-                  <p className="text-xl font-bold mb-2">Proyecto Aprobado</p>
-                  <div className="inline-flex items-center gap-1 bg-white/20 self-start px-2 py-1 rounded text-[10px] font-bold">
-                    <CheckCircle2 size={10} /> VIABLE
+              <GlassCard className="max-w-4xl mx-auto mt-8 border-l-4 border-l-codelco-orange bg-white/60">
+                <p className="text-lg text-gray-700 italic font-medium">
+                  "Nuestro objetivo es digitalizar los activos críticos para garantizar la continuidad operacional y el cumplimiento del Decreto Supremo N° 28, optimizando el OPEX divisional."
+                </p>
+              </GlassCard>
+            </motion.div>
+
+            {/* STRATEGIC PILLARS */}
+            <section>
+              <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-6 text-center">Pilares de Valor</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Card 1 */}
+                <GlassCard delay={0.2} className="hover:shadow-xl transition-all duration-300 group">
+                  <div className="bg-blue-50 w-12 h-12 rounded-lg flex items-center justify-center mb-4 group-hover:bg-blue-100 transition-colors">
+                    <ShieldCheck className="text-blue-600" size={24} />
                   </div>
+                  <h3 className="text-lg font-bold text-gray-800 mb-2">Seguridad & Normativa</h3>
+                  <p className="text-sm text-gray-500 leading-relaxed">
+                    Reducción de exposición al riesgo y cumplimiento estricto del DS N°28 mediante monitoreo ambiental continuo.
+                  </p>
+                </GlassCard>
+
+                {/* Card 2 */}
+                <GlassCard delay={0.3} className="hover:shadow-xl transition-all duration-300 group">
+                  <div className="bg-green-50 w-12 h-12 rounded-lg flex items-center justify-center mb-4 group-hover:bg-green-100 transition-colors">
+                    <Activity className="text-green-600" size={24} />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-800 mb-2">Continuidad Operacional</h3>
+                  <p className="text-sm text-gray-500 leading-relaxed">
+                    Maximización del OEE y disponibilidad de activos críticos (&gt;99%) a través de detección temprana de fallas.
+                  </p>
+                </GlassCard>
+
+                {/* Card 3 */}
+                <GlassCard delay={0.4} className="hover:shadow-xl transition-all duration-300 group">
+                  <div className="bg-orange-50 w-12 h-12 rounded-lg flex items-center justify-center mb-4 group-hover:bg-orange-100 transition-colors">
+                    <TrendingUp className="text-codelco-orange" size={24} />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-800 mb-2">Eficiencia del Gasto</h3>
+                  <p className="text-sm text-gray-500 leading-relaxed">
+                    Reasignación inteligente de recursos: Del gasto correctivo de emergencia a la inversión tecnológica planificada.
+                  </p>
                 </GlassCard>
               </div>
             </section>
 
-            {/* CHARTS */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* CHART 1 */}
-              <GlassCard className="lg:col-span-2 min-h-[380px]" delay={0.5}>
-                <div className="flex justify-between items-center mb-6">
-                  <div>
-                    <h3 className="text-base font-bold text-gray-900">Análisis de Variación de Costos</h3>
-                    <p className="text-xs text-gray-500">Impacto en Servicios y Mantenimiento</p>
-                  </div>
-                </div>
-                <div className="h-[280px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={comparisonData} margin={{ top: 10, right: 10, bottom: 0, left: 10 }} layout="vertical">
-                      <defs>
-                        <linearGradient id="colorBar" x1="0" y1="0" x2="1" y2="0">
-                          <stop offset="0%" stopColor="#D97828" stopOpacity={0.6} />
-                          <stop offset="100%" stopColor="#D97828" stopOpacity={0.9} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid stroke="#f1f5f9" horizontal={false} />
-                      <XAxis type="number" hide />
-                      <YAxis dataKey="name" type="category" width={130} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 500 }} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="Actual" barSize={8} radius={[0, 4, 4, 0]} fill="#cbd5e1" stackId="a" />
-                      <Bar dataKey="Proyectado" barSize={8} radius={[0, 4, 4, 0]} fill="url(#colorBar)" stackId="b">
-                        {comparisonData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.name === 'Tecnología IoT' ? '#ef4444' : '#D97828'} />
-                        ))}
-                      </Bar>
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </div>
-              </GlassCard>
-
-              {/* CHART 2: STRATEGY */}
-              <GlassCard delay={0.6} className="bg-codelco-slate text-white border-gray-700 flex flex-col">
-                <div className="flex items-center gap-3 mb-4">
-                  <Lightbulb className="text-yellow-400" size={20} />
-                  <h3 className="text-base font-bold">Smart Strategy</h3>
-                </div>
-                <div className="space-y-4 flex-1">
-                  <div className="flex items-start gap-3 p-3 bg-white/5 rounded-lg border border-white/10">
-                    <TrendingDown size={16} className="text-green-400 mt-1 shrink-0" />
-                    <div>
-                      <p className="text-xs font-bold text-gray-200">Reducción Reactiva</p>
-                      <p className="text-[10px] text-gray-400 leading-snug mt-1">
-                        Menos gastos en urgencias y logística aérea no planificada.
-                      </p>
+            {/* TEAM SECTION */}
+            <section className="pb-12">
+              <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-6 text-center">Equipo de Innovación & Desarrollo</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {[
+                  { name: "Bryan Hernández", initials: "BH", role: "Ingeniero Comercial UDP" },
+                  { name: "Camilo Alegría", initials: "CA", role: "Ingeniero Comercial UDP" },
+                  { name: "Osmán Elgueta", initials: "OE", role: "Ingeniero Comercial UDP" }
+                ].map((member, idx) => (
+                  <GlassCard key={idx} delay={0.5 + (idx * 0.1)} className="flex items-center gap-4 hover:bg-white/90 transition-colors">
+                    <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold border border-slate-200">
+                      {member.initials}
                     </div>
-                  </div>
-                  <div className="flex items-start gap-3 p-3 bg-white/5 rounded-lg border border-white/10">
-                    <Cpu size={16} className="text-codelco-orange mt-1 shrink-0" />
                     <div>
-                      <p className="text-xs font-bold text-gray-200">Inversión Inteligente</p>
-                      <p className="text-[10px] text-gray-400 leading-snug mt-1">
-                        El costo de licencias IoT es marginal comparado con el ahorro estructural.
-                      </p>
+                      <p className="font-bold text-gray-800">{member.name}</p>
+                      <p className="text-xs text-gray-400">{member.role}</p>
                     </div>
-                  </div>
-                </div>
-                <div className="mt-6 pt-4 border-t border-white/10">
-                  <div className="flex justify-between text-xs text-gray-400 mb-2">
-                    <span>Confianza del Modelo</span>
-                    <span className="text-green-400">98.5%</span>
-                  </div>
-                  <div className="w-full h-1 bg-gray-700 rounded-full overflow-hidden">
-                    <div className="h-full bg-green-500 w-[98.5%] shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div>
-                  </div>
-                </div>
-              </GlassCard>
-            </div>
-
-            {/* TABLE */}
-            <GlassCard delay={0.7} className="overflow-hidden p-0">
-              <div className="px-6 py-4 border-b border-gray-100/50 bg-gray-50/50 flex justify-between items-center">
-                <h3 className="text-sm font-bold text-gray-800">Desglose Financiero Oficial</h3>
-                <Badge type="neutral">Confidencial</Badge>
+                  </GlassCard>
+                ))}
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs text-left">
-                  <thead className="text-gray-500 font-semibold bg-gray-50/30 border-b border-gray-100">
-                    <tr>
-                      <th className="px-6 py-3">Categoría</th>
-                      <th className="px-6 py-3 text-right">Escenario Actual</th>
-                      <th className="px-6 py-3 text-right">Escenario IoT</th>
-                      <th className="px-6 py-3 text-right">Delta</th>
-                      <th className="px-6 py-3 text-right">Impacto</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100/50">
-                    {financialData.scenarios.map((row, index) => {
-                      const isNegative = row.variation < 0;
-                      const percent = row.current ? ((row.variation / row.current) * 100).toFixed(1) : (row.variation > 0 ? '+100' : '0');
-                      return (
-                        <tr key={index} className="hover:bg-blue-50/30 transition-colors">
-                          <td className="px-6 py-3.5 font-medium text-gray-700">{row.category}</td>
-                          <td className="px-6 py-3.5 text-right tabular-nums text-gray-500">{row.current.toLocaleString('es-CL')}</td>
-                          <td className="px-6 py-3.5 text-right tabular-nums font-bold text-gray-800">{row.future.toLocaleString('es-CL')}</td>
-                          <td className={cn("px-6 py-3.5 text-right tabular-nums font-bold", isNegative ? "text-green-600 bg-green-50/30 rounded" : row.variation > 0 ? "text-red-500 bg-red-50/30 rounded" : "text-gray-400")}>
-                            {row.variation > 0 ? "+" : ""}{row.variation.toLocaleString('es-CL')}
-                          </td>
-                          <td className="px-6 py-3.5 text-right">
-                            <span className={cn("px-2 py-0.5 rounded text-[10px] font-bold", isNegative ? "bg-green-100 text-green-700" : row.variation > 0 ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-500")}>
-                              {percent}%
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </GlassCard>
+            </section>
 
           </div>
         </main>
@@ -699,23 +654,23 @@ function DashboardLayout({ onLogout, onNavigate }) {
 
 // --- ROOT APP ---
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
   const [view, setView] = useState('dashboard'); // 'dashboard' | 'budget'
 
-  const handleNavigation = () => {
-    setView('budget');
+  const handleNavigation = (targetView) => {
+    setView(targetView);
   };
 
   return (
     <>
       <AnimatePresence mode='wait'>
-        {!isAuthenticated ? (
+        {!currentUser ? (
           <motion.div
             key="login"
             exit={{ opacity: 0, y: -20, transition: { duration: 0.5 } }}
             className="absolute inset-0 z-50"
           >
-            <LoginScreen onLogin={() => setIsAuthenticated(true)} />
+            <LoginScreen onLogin={(user) => setCurrentUser(user)} />
           </motion.div>
         ) : view === 'dashboard' ? (
           <motion.div
@@ -726,9 +681,9 @@ function App() {
             transition={{ duration: 0.5 }}
             className="absolute inset-0"
           >
-            <DashboardLayout onLogout={() => setIsAuthenticated(false)} onNavigate={handleNavigation} />
+            <DashboardLayout user={currentUser} onLogout={() => setCurrentUser(null)} onNavigate={handleNavigation} />
           </motion.div>
-        ) : (
+        ) : view === 'budget' ? (
           <motion.div
             key="budget"
             initial={{ opacity: 0, x: 20 }}
@@ -738,6 +693,28 @@ function App() {
             className="absolute inset-0 z-40"
           >
             <BudgetDetail onBack={() => setView('dashboard')} />
+          </motion.div>
+        ) : view === 'kpi' ? (
+          <motion.div
+            key="kpi"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+            className="absolute inset-0 z-40"
+          >
+            <KPIView onBack={() => setView('dashboard')} />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="simulation"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+            className="absolute inset-0 z-40"
+          >
+            <SimulationView onBack={() => setView('dashboard')} />
           </motion.div>
         )}
       </AnimatePresence>
